@@ -1,19 +1,31 @@
-import * as core from '@actions/core'
-import {wait} from './wait'
+import * as core from '@actions/core';
+import { Notion } from './notion';
 
 async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
-    core.debug(`Waiting ${ms} milliseconds ...`) // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
+    const notionToken: string = core.getInput('notionToken');
+    const rootPageId: string = core.getInput('rootPageId');
+    const outputDir: string = core.getInput('outputDir');
 
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    if (!notionToken) {
+      core.setFailed('"notionToken is required."');
+      return;
+    }
 
-    core.setOutput('time', new Date().toTimeString())
+    if (!rootPageId) {
+      core.setFailed('"rootPageId is required."');
+      return;
+    }
+
+    core.debug(new Date().toTimeString());
+    const notion = new Notion(notionToken);
+    await notion.outputPages(outputDir, rootPageId);
+    core.debug(new Date().toTimeString());
+
+    core.setOutput('time', new Date().toTimeString());
   } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message)
+    if (error instanceof Error) core.setFailed(error.message);
   }
 }
 
-run()
+run();
