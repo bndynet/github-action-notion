@@ -1,5 +1,5 @@
 {
-  "name": "typescript-action-notion",
+  "name": "@bndynet/github-action-notion",
   "version": "0.0.0",
   "private": true,
   "description": "Output all pages into __posts folder for github pages.",
