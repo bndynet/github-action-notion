@@ -55,7 +55,11 @@ export class Notion {
     return this.n2m.toMarkdownString(mdblocks);
   }
 
-  async outputPages(dir: string, rootPageId: string, count?: number): Promise<void> {
+  async outputPages(
+    dir: string,
+    rootPageId: string,
+    count?: number,
+  ): Promise<void> {
     let search = await this.getPages();
     let results = search.results;
     this.notionPages = this.notionPages.concat(results);
@@ -87,8 +91,9 @@ export class Notion {
     if (!existsSync(dir)) {
       mkdirSync(dir);
     }
-    let contentPages = this.pages
-      .filter((page) => !page.children || page.children.length === 0);
+    let contentPages = this.pages.filter(
+      (page) => !page.children || page.children.length === 0,
+    );
     if (count) {
       contentPages = contentPages.splice(0, count);
     }

@@ -53,14 +53,20 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const notionToken = core.getInput('notionToken');
+            const rootPageId = core.getInput('rootPageId');
             const outputDir = core.getInput('outputDir');
+            const outputPageCount = parseInt(core.getInput('outputPageCount') || '0') || 0;
             if (!notionToken) {
                 core.setFailed('"notionToken is required."');
                 return;
             }
+            if (!rootPageId) {
+                core.setFailed('"rootPageId is required."');
+                return;
+            }
             core.debug(new Date().toTimeString());
             const notion = new notion_1.Notion(notionToken);
-            yield notion.outputPages(outputDir);
+            yield notion.outputPages(outputDir, rootPageId, outputPageCount);
             core.debug(new Date().toTimeString());
             core.setOutput('time', new Date().toTimeString());
         }
@@ -99,6 +105,9 @@ title: {{title}}
 categories: [{{categories}}]
 tags: [{{tags}}]
 ---
+
+[{{url}}]({{url}})
+
 `;
 class Notion {
     constructor(notionToken) {
@@ -121,7 +130,7 @@ class Notion {
             return this.n2m.toMarkdownString(mdblocks);
         });
     }
-    outputPages(dir) {
+    outputPages(dir, rootPageId, count) {
         return __awaiter(this, void 0, void 0, function* () {
             let search = yield this.getPages();
             let results = search.results;
@@ -131,14 +140,6 @@ class Notion {
                 results = search.results;
                 this.notionPages = this.notionPages.concat(results);
             }
-            console.log('Example: ', this.notionPages[0]);
-            const rootPageId = 'ed10e958-cb72-4f7d-b251-56b9c34e5ed8';
-            // allResults = allResults
-            //   .filter(
-            //     (page: any) =>
-            //       page.id === 'ed10e958-cb72-4f7d-b251-56b9c34e5ed8' ||
-            //       page.id === 'e4c23177-e2ac-456f-9e32-9c14651c4786',
-            //   );
             for (const p of this.notionPages) {
                 const parent = yield this.getParentPage(p, this.notionPages);
                 const page = this.convertPage(p);
@@ -153,18 +154,16 @@ class Notion {
             for (const rootPage of rootPages) {
                 this.setChildPages(rootPage);
             }
-            // console.log(`root pages (${rootPages.length}):`, rootPages);
-            // console.log('=================');
-            // console.log('JSON:', JSON.stringify(rootPages, null, '\t'));
             if (!dir) {
                 dir = './_posts/';
             }
             if (!(0, fs_1.existsSync)(dir)) {
                 (0, fs_1.mkdirSync)(dir);
             }
-            const contentPages = this.pages
-                .filter((page) => !page.children || page.children.length === 0)
-                .splice(0, 4);
+            let contentPages = this.pages.filter((page) => !page.children || page.children.length === 0);
+            if (count) {
+                contentPages = contentPages.splice(0, count);
+            }
             contentPages.forEach((page) => __awaiter(this, void 0, void 0, function* () {
                 const pageContent = yield this.getMarkdownByPageId(page.id, 3);
                 if (pageContent) {
@@ -176,7 +175,7 @@ class Notion {
                         .padStart(2, '0')}-${page.pathname}.md`;
                     let header = postHeader;
                     Object.keys(page).forEach((key) => {
-                        header = header.replace(`{{${key}}}`, Array.isArray(page[key])
+                        header = header.replace(new RegExp(`\{\{${key}\}\}`, 'g'), Array.isArray(page[key])
                             ? page[key].toString().replace('"', '')
                             : page[key]);
                     });
@@ -212,7 +211,7 @@ class Notion {
         currentPage.children = this.pages.filter((page) => page.parentId === currentPage.id);
         for (const childPage of currentPage.children) {
             childPage.parentIds = [currentPage.id].concat(currentPage.parentIds || []);
-            childPage.categories = (currentPage.title ? [currentPage.title] : []).concat(currentPage.categories || []);
+            childPage.categories.push(...currentPage.categories, currentPage.title);
             childPage.tags = childPage.categories;
             this.setChildPages(childPage);
         }
@@ -262,6 +261,7 @@ class Notion {
         pagePath = pagePath.substring(0, pagePath.length - 32 - 1);
         return {
             id: backendPage.id,
+            idWithoutSeparator: backendPage.id.replace('-', ''),
             createdAt: new Date(backendPage.created_time),
             lastUpdatedAt: new Date(backendPage.last_edited_time),
             url: backendPage.url,
