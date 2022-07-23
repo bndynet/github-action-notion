@@ -4,8 +4,8 @@
 - name: Sync Notion page
   uses: bndynet/github-action-notion@v1
   with:
-    notionToken: ${{ secrets.NOTION_TOKEN}}
-    rootPageId: <uuid>
+    notion-token: ${{ secrets.NOTION_TOKEN }}
+    root-page-id: ${{ secrets.ROOT_PAGE_ID }}
 ```
 
 ## Publish to a distribution branch

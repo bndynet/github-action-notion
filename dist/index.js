@@ -52,16 +52,16 @@ const notion_1 = __nccwpck_require__(7841);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const notionToken = core.getInput('notionToken');
-            const rootPageId = core.getInput('rootPageId');
-            const outputDir = core.getInput('outputDir');
-            const outputPageCount = parseInt(core.getInput('outputPageCount') || '0') || 0;
+            const notionToken = core.getInput('notion-token');
+            const rootPageId = core.getInput('root-page-id');
+            const outputDir = core.getInput('output-dir');
+            const outputPageCount = parseInt(core.getInput('output-page-count') || '0') || 0;
             if (!notionToken) {
-                core.setFailed('"notionToken is required."');
+                core.setFailed('"notion-token is required."');
                 return;
             }
             if (!rootPageId) {
-                core.setFailed('"rootPageId is required."');
+                core.setFailed('"root-page-id is required."');
                 return;
             }
             core.debug(new Date().toTimeString());

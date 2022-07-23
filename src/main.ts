@@ -3,19 +3,19 @@ import { Notion } from './notion';
 
 async function run(): Promise<void> {
   try {
-    const notionToken: string = core.getInput('notionToken');
-    const rootPageId: string = core.getInput('rootPageId');
-    const outputDir: string = core.getInput('outputDir');
+    const notionToken: string = core.getInput('notion-token');
+    const rootPageId: string = core.getInput('root-page-id');
+    const outputDir: string = core.getInput('output-dir');
     const outputPageCount: number =
-      parseInt(core.getInput('outputPageCount') || '0') || 0;
+      parseInt(core.getInput('output-page-count') || '0') || 0;
 
     if (!notionToken) {
-      core.setFailed('"notionToken is required."');
+      core.setFailed('"notion-token is required."');
       return;
     }
 
     if (!rootPageId) {
-      core.setFailed('"rootPageId is required."');
+      core.setFailed('"root-page-id is required."');
       return;
     }
 

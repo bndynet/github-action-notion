@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ./
         with:
-          notionToken: ${{ secrets.NOTION_TOKEN }}
-          rootPageId: ${{ secrets.NOTION_ROOT_PAGE_ID }}
-          outputDir: ./_posts/
-          outputPageCount: 1
+          notion-token: ${{ secrets.NOTION_TOKEN }}
+          root-page-id: ${{ secrets.NOTION_ROOT_PAGE_ID }}
+          output-dir: ./_posts/
+          output-page-count: 1
