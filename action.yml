@@ -2,16 +2,20 @@ name: 'Notion Pages'
 description: 'Generate markdown files in _posts folder from Notion pages.'
 author: 'Bendy Zhang'
 inputs:
-  notionToken:
+  notion-token:
     required: true
     description: 'Notion access token'
-  rootPageId:
+  root-page-id:
     required: true
     description: 'root page id'
-  outputDir:
+  output-dir:
     required: false
     description: 'output folder'
     default: './_posts/'
+
+branding:
+  icon: 'archive'
+  color: 'orange'
 
 runs:
   using: 'node16'
