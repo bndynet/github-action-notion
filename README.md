@@ -1,12 +1,37 @@
 # Sync Notion pages to posts of Jekyll pages
 
+Example for GitHub Action:
+
+```yml
+name: Sync Notion pages to posts
+
+on:
+  schedule:
+    - cron: '0 20 * * *'
+    
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Generate posts
+        uses: bndynet/github-action-notion@v1
+        with:
+          notion-token: ${{ secrets.NOTION_TOKEN}}
+          root-page-id: ${{ secrets.NOTION_ROOT_PAGE_ID }}
+
+      - name: Commit posts
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: '_posts'
+          message: Sync Notion pages to posts by GitHub Actions
+          committer_name: your-name
+          committer_email: your-email
 ```
-- name: Sync Notion page
-  uses: bndynet/github-action-notion@v1
-  with:
-    notion-token: ${{ secrets.NOTION_TOKEN }}
-    root-page-id: ${{ secrets.ROOT_PAGE_ID }}
-```
+
+Before above action, you need to create a your integration at https://www.notion.so/my-integrations. And add the connection of your integration at your root page. 
 
 ## Publish to a distribution branch
 

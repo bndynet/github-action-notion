@@ -1,4 +1,5 @@
 import * as core from '@actions/core';
+import { emptyDirSync } from 'fs-extra';
 import { Notion } from './notion';
 
 async function run(): Promise<void> {
@@ -6,6 +7,7 @@ async function run(): Promise<void> {
     const notionToken: string = core.getInput('notion-token');
     const rootPageId: string = core.getInput('root-page-id');
     const outputDir: string = core.getInput('output-dir');
+    const cleanupBefore: boolean = core.getBooleanInput('cleanup-before');
     const outputPageCount: number =
       parseInt(core.getInput('output-page-count') || '0') || 0;
 
@@ -17,6 +19,10 @@ async function run(): Promise<void> {
     if (!rootPageId) {
       core.setFailed('"root-page-id is required."');
       return;
+    }
+
+    if (cleanupBefore) {
+      emptyDirSync(outputDir);
     }
 
     core.debug(new Date().toTimeString());
