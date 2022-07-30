@@ -12,6 +12,11 @@ inputs:
     required: false
     description: 'output folder'
     default: './_posts/'
+  cleanup-before:
+    required: false
+    description: 'remove all files in output directory'
+    default: false
+
 
 branding:
   icon: 'archive'
