@@ -271,7 +271,7 @@ class Notion {
             lastUpdatedAt: new Date(backendPage.last_edited_time),
             url: backendPage.url,
             pathname: (pagePath || '').toLowerCase(),
-            title: titles && titles.length > 0 ? titles[0].plain_text : '',
+            title: titles && Array.isArray(titles) ? titles.filter(t => t.type === 'text').map(t => t.plain_text).join('') : '',
             parentIds: [],
             children: [],
             categories: [],
