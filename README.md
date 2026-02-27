@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Generate posts
-        uses: bndynet/github-action-notion@v1
+        uses: bndynet/github-action-notion@v2
         with:
           notion-token: ${{ secrets.NOTION_TOKEN}}
           root-page-id: ${{ secrets.NOTION_ROOT_PAGE_ID }}

@@ -9,8 +9,8 @@
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
-    "package": "ncc build --source-map --license licenses.txt",
-    "test": "jest",
+    "package": "npm run build && NODE_OPTIONS=--openssl-legacy-provider ncc build lib/main.js --source-map --license licenses.txt --out dist",
+    "test": "npm start",
     "start": "ts-node ./__tests__/notion.test.ts",
     "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
   },
@@ -27,7 +27,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.10.0",
-    "@notionhq/client": "^2.2.1",
+    "@notionhq/client": "^5.13.0",
     "dotenv": "^16.0.3",
     "fs-extra": "^11.1.0",
     "notion-to-md": "^2.5.5"

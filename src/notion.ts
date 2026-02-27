@@ -63,8 +63,9 @@ export class Notion {
     let search = await this.getPages();
     let results = search.results;
     this.notionPages = this.notionPages.concat(results);
-    while (results.length === 100) {
-      search = await this.getPages(results[99].id);
+
+    while (search.has_more && search.next_cursor) {
+      search = await this.getPages(search.next_cursor);
       results = search.results;
       this.notionPages = this.notionPages.concat(results);
     }
@@ -105,9 +106,9 @@ export class Notion {
         )
           .toString()
           .padStart(2, '0')}-${page.createdAt
-          .getDate()
-          .toString()
-          .padStart(2, '0')}-${page.pathname}.md`;
+            .getDate()
+            .toString()
+            .padStart(2, '0')}-${page.pathname}.md`;
 
         let header = postHeader;
         Object.keys(page).forEach((key) => {
@@ -120,18 +121,19 @@ export class Notion {
         });
 
         writeFile(`${dir}/${filename}`, header + pageContent, (err) => {
-          console.log('============ ERROR =============');
-          console.log(err);
+          if (err) {
+            console.error('Failed to write page file:', err);
+          }
         });
       }
     });
   }
 
-  private async getPages(prePaginationItem?: string): Promise<SearchResponse> {
+  private async getPages(startCursor?: string): Promise<SearchResponse> {
     const searchParams: any = {
       sort: {
         timestamp: 'last_edited_time',
-        direction: 'ascending',
+        direction: 'descending',
       },
       // query?: string,
       page_size: 100, // The max value is 100
@@ -140,8 +142,8 @@ export class Notion {
         value: 'page',
       },
     };
-    if (prePaginationItem) {
-      searchParams.start_cursor = prePaginationItem;
+    if (startCursor) {
+      searchParams.start_cursor = startCursor;
     }
     return await this.notionClient.search(searchParams);
   }
