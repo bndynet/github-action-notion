@@ -1,5 +1,5 @@
 name: 'Notion Pages'
-description: 'Generate markdown files in _posts folder from Notion pages.'
+description: 'Generate Markdown files in the Docusaurus blog folder from Notion pages.'
 author: 'Bendy Zhang'
 inputs:
   notion-token:
@@ -10,12 +10,16 @@ inputs:
     description: 'root page id'
   output-dir:
     required: false
-    description: 'output folder'
-    default: './_posts/'
+    description: 'output folder (default ./blog/ for Docusaurus blog)'
+    default: './blog/'
   cleanup-before:
     required: false
     description: 'remove all files in output directory'
-    default: false
+    default: 'false'
+  output-page-count:
+    required: false
+    description: 'limit the number of pages exported (0 means no limit)'
+    default: '0'
 
 
 branding:
@@ -23,5 +27,5 @@ branding:
   color: 'orange'
 
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'dist/index.js'

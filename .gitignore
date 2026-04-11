@@ -99,4 +99,5 @@ __tests__/runner/*
 lib/**/*
 
 _posts
+blog
 lib
