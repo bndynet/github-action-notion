@@ -10,6 +10,7 @@ import { writeFile } from 'fs/promises';
 import * as path from 'path';
 import { NotionToMarkdown } from 'notion-to-md';
 import type { MdStringObject } from 'notion-to-md/build/types';
+import { downloadAndRewriteMarkdownImages } from './assets';
 import { escapeMdxSpecialChars } from './markdown';
 
 // Notion serialises a page id as 32 hex chars (no dashes) in the page URL,
@@ -22,9 +23,9 @@ const NOTION_URL_ID_TRAILER_LENGTH = NOTION_URL_ID_LENGTH + 1; // includes the d
 // pragmatic default that matches the original implementation.
 const DEFAULT_NESTING_DEPTH = 3;
 
-// Default fall-back output directory aligned with the Docusaurus blog
+// Default directory for exported Markdown, aligned with the Docusaurus blog
 // convention (docusaurus.config.js -> blog plugin `routeBasePath`/`path`).
-const DEFAULT_OUTPUT_DIR = './blog/';
+const DEFAULT_MD_DIR = './blog/';
 
 type PageParent = PageObjectResponse['parent'];
 
@@ -53,13 +54,33 @@ interface BlogPostFrontmatter {
   notion_url: string;
 }
 
+export interface PageExportOptions {
+  /** When true, download `![](...)` targets and rewrite links to paths relative to the `.md` / `.mdx` file. */
+  downloadAssets?: boolean;
+  /**
+   * Root directory for downloaded images (`{assetsDir}/{postBase}/…`).
+   * When `downloadAssets` is true and this is omitted or empty, defaults to `{mdDir}/images`.
+   */
+  assetsDir?: string;
+  /**
+   * When `downloadAssets` is true and this is non-empty, rewritten image URLs are
+   * `{assetLinkBase}/{postBase}/{filename}` (e.g. `/static/` with `assets-dir` `./static/`).
+   * When empty, links are `/{postBase}/{filename}` (site root; independent of `md-dir`).
+   */
+  assetLinkBase?: string;
+  /** Output file extension (default `md`). */
+  fileExtension?: 'md' | 'mdx';
+}
+
 export class Notion {
   private notionClient: Client;
+  private readonly notionToken: string;
   private n2m: NotionToMarkdown;
   private notionPages: PageObjectResponse[] = [];
   private pages: Page[] = [];
 
   constructor(notionToken: string) {
+    this.notionToken = notionToken;
     this.notionClient = new Client({
       auth: notionToken,
       logLevel: LogLevel.WARN,
@@ -86,16 +107,17 @@ export class Notion {
   }
 
   async outputPages(
-    dir: string,
+    mdDir: string,
     rootPageId: string,
     count?: number,
+    exportOptions?: PageExportOptions,
   ): Promise<void> {
     await this.fetchAllPages();
     await this.buildPageTree(rootPageId);
 
-    const outputDir = dir || DEFAULT_OUTPUT_DIR;
-    if (!existsSync(outputDir)) {
-      mkdirSync(outputDir, { recursive: true });
+    const baseMdDir = mdDir || DEFAULT_MD_DIR;
+    if (!existsSync(baseMdDir)) {
+      mkdirSync(baseMdDir, { recursive: true });
     }
 
     const leafPages = this.pages.filter(
@@ -109,7 +131,7 @@ export class Notion {
     // (the original `forEach(async ...)` did neither).
     for (const page of targetPages) {
       try {
-        await this.writePage(outputDir, page);
+        await this.writePage(baseMdDir, page, exportOptions);
       } catch (err) {
         console.error(
           `Failed to write page "${page.title}" (${page.id}):`,
@@ -158,13 +180,35 @@ export class Notion {
     }
   }
 
-  private async writePage(outputDir: string, page: Page): Promise<void> {
-    const markdown = await this.getMarkdownByPageId(page.id);
+  private async writePage(
+    mdDir: string,
+    page: Page,
+    exportOptions?: PageExportOptions,
+  ): Promise<void> {
+    let markdown = await this.getMarkdownByPageId(page.id);
     if (!markdown) return;
 
     const slug = page.pathname || page.idWithoutSeparator;
     const dateStr = formatDate(page.createdAt);
-    const filename = `${dateStr}-${slug}.md`;
+    const postBase = `${dateStr}-${slug}`;
+    const ext = exportOptions?.fileExtension === 'mdx' ? 'mdx' : 'md';
+    const filename = `${postBase}.${ext}`;
+    const markdownFilePath = path.join(mdDir, filename);
+
+    if (exportOptions?.downloadAssets) {
+      const trimmed = (exportOptions.assetsDir ?? '').trim();
+      const assetsRoot =
+        trimmed.length > 0 ? trimmed : path.join(mdDir, 'images');
+      markdown = await downloadAndRewriteMarkdownImages({
+        markdown,
+        notionToken: this.notionToken,
+        markdownFilePath,
+        assetsDir: assetsRoot,
+        postBase,
+        assetLinkBase: exportOptions.assetLinkBase?.trim() || undefined,
+      });
+    }
+
     const frontmatter = buildFrontmatter({
       title: page.title || slug,
       slug,
@@ -174,7 +218,7 @@ export class Notion {
     });
 
     const body = `${frontmatter}\n[Open in Notion](${page.url})\n\n${markdown}\n`;
-    await writeFile(path.join(outputDir, filename), body, {
+    await writeFile(path.join(mdDir, filename), body, {
       encoding: 'utf8',
     });
   }

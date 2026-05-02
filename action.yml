@@ -8,18 +8,34 @@ inputs:
   root-page-id:
     required: true
     description: 'root page id'
-  output-dir:
+  md-dir:
     required: false
-    description: 'output folder (default ./blog/ for Docusaurus blog)'
+    description: 'Directory for exported Markdown / MDX posts (e.g. Docusaurus blog folder).'
     default: './blog/'
   cleanup-before:
     required: false
-    description: 'remove all files in output directory'
+    description: 'Remove all files in md-dir before exporting.'
     default: 'false'
   output-page-count:
     required: false
     description: 'limit the number of pages exported (0 means no limit)'
     default: '0'
+  download-assets:
+    required: false
+    description: 'When true, download images into assets-dir and rewrite markdown links to site paths (default /slug/file; see asset-link-base).'
+    default: 'false'
+  assets-dir:
+    required: false
+    description: 'Root directory for downloaded images (each post uses a subfolder named YYYY-MM-DD-slug). When download-assets is true and this is empty, defaults to {md-dir}/images.'
+    default: ''
+  asset-link-base:
+    required: false
+    description: 'When set with download-assets, public URL prefix before /YYYY-MM-DD-slug/filename. Typical with assets-dir ./static/: use /static/ so links look like /static/2026-01-01-post/hash.png. When empty, links are /YYYY-MM-DD-slug/filename from site root.'
+    default: ''
+  file-extension:
+    required: false
+    description: 'Exported post file extension: md or mdx.'
+    default: 'md'
 
 
 branding:

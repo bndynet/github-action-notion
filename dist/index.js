@@ -1,6 +1,269 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 7659:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.extractMarkdownImageUrls = extractMarkdownImageUrls;
+exports.isSafeAssetUrl = isSafeAssetUrl;
+exports.shouldAttachNotionAuthorization = shouldAttachNotionAuthorization;
+exports.isAwsSigV4PresignedUrl = isAwsSigV4PresignedUrl;
+exports.fetchRemoteAsset = fetchRemoteAsset;
+exports.rewriteMarkdownImages = rewriteMarkdownImages;
+exports.buildAssetMarkdownUrl = buildAssetMarkdownUrl;
+exports.downloadAndRewriteMarkdownImages = downloadAndRewriteMarkdownImages;
+const crypto_1 = __nccwpck_require__(6982);
+const fs_1 = __nccwpck_require__(9896);
+const promises_1 = __nccwpck_require__(1943);
+const path = __importStar(__nccwpck_require__(6928));
+const client_1 = __nccwpck_require__(8342);
+const IMAGE_MD = /!\[[^\]]*\]\((https?:[^)\s]+)\)/g;
+/** Collect unique http(s) image URLs from markdown image syntax (not data: URIs). */
+function extractMarkdownImageUrls(markdown) {
+    const out = [];
+    let m;
+    IMAGE_MD.lastIndex = 0;
+    while ((m = IMAGE_MD.exec(markdown)) !== null) {
+        const u = m[1];
+        if (!u.startsWith('data:'))
+            out.push(u);
+    }
+    return [...new Set(out)];
+}
+/**
+ * Basic SSRF guardrails for outbound fetches triggered by Notion-exported
+ * markdown: allow only http(s), block obvious local/private targets.
+ */
+function isSafeAssetUrl(urlString) {
+    let u;
+    try {
+        u = new URL(urlString);
+    }
+    catch (_a) {
+        return false;
+    }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:')
+        return false;
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '0.0.0.0' ||
+        host === '[::1]' ||
+        host === '::1') {
+        return false;
+    }
+    if (host.endsWith('.local'))
+        return false;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host))
+        return false;
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host))
+        return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host))
+        return false;
+    if (/^169\.254\.\d{1,3}\.\d{1,3}$/.test(host))
+        return false;
+    return true;
+}
+function shouldAttachNotionAuthorization(hostname) {
+    const h = hostname.toLowerCase();
+    if (h === 'amazonaws.com' || h.endsWith('.amazonaws.com'))
+        return true;
+    if (h === 'notion.so' || h.endsWith('.notion.so'))
+        return true;
+    if (h.includes('notionusercontent.com'))
+        return true;
+    if (h.includes('notion-static.com'))
+        return true;
+    return false;
+}
+/**
+ * AWS SigV4 presigned object URLs (Notion file URLs) authenticate via query params.
+ * Sending `Authorization: Bearer …` breaks the signed request and S3 often returns 400.
+ */
+function isAwsSigV4PresignedUrl(urlString) {
+    let u;
+    try {
+        u = new URL(urlString);
+    }
+    catch (_a) {
+        return false;
+    }
+    const h = u.hostname.toLowerCase();
+    if (!(h === 'amazonaws.com' || h.endsWith('.amazonaws.com')))
+        return false;
+    return (/[?&]X-Amz-Signature=/i.test(u.href) || /[?&]X-Amz-Algorithm=/i.test(u.href));
+}
+function extensionFromContentType(ct) {
+    var _a;
+    if (!ct)
+        return null;
+    const main = ct.split(';')[0].trim().toLowerCase();
+    const map = {
+        'image/png': '.png',
+        'image/jpeg': '.jpg',
+        'image/jpg': '.jpg',
+        'image/webp': '.webp',
+        'image/gif': '.gif',
+        'image/svg+xml': '.svg',
+        'image/avif': '.avif',
+        'image/bmp': '.bmp',
+        'image/x-icon': '.ico',
+        'image/vnd.microsoft.icon': '.ico',
+    };
+    return (_a = map[main]) !== null && _a !== void 0 ? _a : null;
+}
+function extensionFromPathname(pathname) {
+    var _a;
+    const base = (_a = pathname.split('/').pop()) !== null && _a !== void 0 ? _a : '';
+    const m = base.match(/\.([a-zA-Z0-9]{2,5})(?:$|[?#])/);
+    if (m)
+        return `.${m[1].toLowerCase()}`;
+    return '.bin';
+}
+function fetchRemoteAsset(url, notionToken) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a;
+        const parsed = new URL(url);
+        const headers = {
+            'user-agent': 'github-action-notion/1.0',
+        };
+        if (!isAwsSigV4PresignedUrl(url) &&
+            shouldAttachNotionAuthorization(parsed.hostname)) {
+            headers.Authorization = `Bearer ${notionToken}`;
+            headers['Notion-Version'] = client_1.Client.defaultNotionVersion;
+        }
+        const res = yield fetch(url, { headers, redirect: 'follow' });
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        }
+        const arrayBuf = yield res.arrayBuffer();
+        const buffer = Buffer.from(arrayBuf);
+        const ct = res.headers.get('content-type');
+        const ext = (_a = extensionFromContentType(ct)) !== null && _a !== void 0 ? _a : extensionFromPathname(parsed.pathname);
+        return { buffer, ext };
+    });
+}
+/** Rewrite only markdown image targets that appear in the replacement map. */
+function rewriteMarkdownImages(markdown, urlToRelative) {
+    if (urlToRelative.size === 0)
+        return markdown;
+    return markdown.replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, (full, alt, url) => {
+        const rep = urlToRelative.get(url);
+        if (rep)
+            return `![${alt}](${rep})`;
+        return full;
+    });
+}
+/**
+ * Build the string used in `![](...)` after an asset is saved.
+ *
+ * Files are still written under `assets-dir` on disk (e.g. `./static/{postBase}/{file}` for
+ * Docusaurus); public URLs follow the usual static mapping from site root.
+ *
+ * - When `linkBase` is empty: `/{postBase}/{filename}` (root-relative, independent of `md-dir`).
+ * - When `linkBase` is set (e.g. `/static/` with on-disk `./static/`): `{linkBase}/{postBase}/{filename}`.
+ */
+function buildAssetMarkdownUrl(opts) {
+    const { linkBase, postBase, filename } = opts;
+    const trimmed = linkBase === null || linkBase === void 0 ? void 0 : linkBase.trim();
+    if (!trimmed) {
+        const tail = `${postBase}/${filename}`.replace(/\/+/g, '/');
+        return `/${tail}`.replace(/\/+/g, '/');
+    }
+    const base = trimmed.replace(/[/\\]+$/, '').replace(/\\/g, '/');
+    return `${base}/${postBase}/${filename}`.replace(/\\/g, '/');
+}
+/**
+ * Downloads markdown image targets into `assetsDir/postBase/` and returns
+ * markdown with rewritten `![](...)` (default `/{postBase}/{file}` from site root, see
+ * `buildAssetMarkdownUrl`).
+ */
+function downloadAndRewriteMarkdownImages(opts) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { markdown, notionToken, markdownFilePath, assetsDir, postBase, assetLinkBase, } = opts;
+        const urls = extractMarkdownImageUrls(markdown);
+        if (urls.length === 0)
+            return markdown;
+        const absoluteAssetDir = path.join(assetsDir, postBase);
+        (0, fs_1.mkdirSync)(absoluteAssetDir, { recursive: true });
+        const urlToRelative = new Map();
+        for (const url of urls) {
+            if (!isSafeAssetUrl(url)) {
+                console.warn(`Skipping image download for URL that failed safety checks: ${url}`);
+                continue;
+            }
+            try {
+                const { buffer, ext } = yield fetchRemoteAsset(url, notionToken);
+                const hash = (0, crypto_1.createHash)('sha256').update(url).digest('hex').slice(0, 16);
+                const filename = `${hash}${ext}`;
+                const absoluteFile = path.resolve(path.join(absoluteAssetDir, filename));
+                yield (0, promises_1.writeFile)(absoluteFile, buffer);
+                const rel = buildAssetMarkdownUrl({
+                    linkBase: assetLinkBase,
+                    assetsDir,
+                    markdownFilePath,
+                    postBase,
+                    filename,
+                    absoluteAssetFile: absoluteFile,
+                });
+                urlToRelative.set(url, rel);
+            }
+            catch (err) {
+                console.warn(`Failed to download image, leaving remote URL: ${url}`, err);
+            }
+        }
+        return rewriteMarkdownImages(markdown, urlToRelative);
+    });
+}
+
+
+/***/ }),
+
 /***/ 5915:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -57,9 +320,14 @@ function run() {
         try {
             const notionToken = core.getInput('notion-token');
             const rootPageId = core.getInput('root-page-id');
-            const outputDir = core.getInput('output-dir');
+            const mdDir = core.getInput('md-dir') || './blog/';
             const cleanupBefore = core.getBooleanInput('cleanup-before');
             const outputPageCount = parseInt(core.getInput('output-page-count') || '0') || 0;
+            const downloadAssets = core.getBooleanInput('download-assets');
+            const assetsDirInput = core.getInput('assets-dir').trim();
+            const assetLinkBase = core.getInput('asset-link-base').trim();
+            const fileExtensionRaw = (core.getInput('file-extension') || 'md').toLowerCase();
+            const fileExtension = fileExtensionRaw === 'mdx' ? 'mdx' : 'md';
             if (!notionToken) {
                 core.setFailed('"notion-token is required."');
                 return;
@@ -69,11 +337,16 @@ function run() {
                 return;
             }
             if (cleanupBefore) {
-                (0, fs_extra_1.emptyDirSync)(outputDir);
+                (0, fs_extra_1.emptyDirSync)(mdDir);
             }
             core.debug(new Date().toTimeString());
             const notion = new notion_1.Notion(notionToken);
-            yield notion.outputPages(outputDir, rootPageId, outputPageCount);
+            yield notion.outputPages(mdDir, rootPageId, outputPageCount, {
+                downloadAssets,
+                assetsDir: assetsDirInput || undefined,
+                assetLinkBase: assetLinkBase || undefined,
+                fileExtension,
+            });
             core.debug(new Date().toTimeString());
             core.setOutput('time', new Date().toTimeString());
         }
@@ -285,6 +558,7 @@ const fs_1 = __nccwpck_require__(9896);
 const promises_1 = __nccwpck_require__(1943);
 const path = __importStar(__nccwpck_require__(6928));
 const notion_to_md_1 = __nccwpck_require__(9042);
+const assets_1 = __nccwpck_require__(7659);
 const markdown_1 = __nccwpck_require__(7415);
 // Notion serialises a page id as 32 hex chars (no dashes) in the page URL,
 // preceded by a single "-" that separates the slug from the id.
@@ -294,13 +568,14 @@ const NOTION_URL_ID_TRAILER_LENGTH = NOTION_URL_ID_LENGTH + 1; // includes the d
 // can be deeply nested (toggles inside columns inside callouts...); 3 is a
 // pragmatic default that matches the original implementation.
 const DEFAULT_NESTING_DEPTH = 3;
-// Default fall-back output directory aligned with the Docusaurus blog
+// Default directory for exported Markdown, aligned with the Docusaurus blog
 // convention (docusaurus.config.js -> blog plugin `routeBasePath`/`path`).
-const DEFAULT_OUTPUT_DIR = './blog/';
+const DEFAULT_MD_DIR = './blog/';
 class Notion {
     constructor(notionToken) {
         this.notionPages = [];
         this.pages = [];
+        this.notionToken = notionToken;
         this.notionClient = new client_1.Client({
             auth: notionToken,
             logLevel: client_1.LogLevel.WARN,
@@ -323,13 +598,13 @@ class Notion {
             return (0, markdown_1.escapeMdxSpecialChars)(rawMarkdown);
         });
     }
-    outputPages(dir, rootPageId, count) {
+    outputPages(mdDir, rootPageId, count, exportOptions) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.fetchAllPages();
             yield this.buildPageTree(rootPageId);
-            const outputDir = dir || DEFAULT_OUTPUT_DIR;
-            if (!(0, fs_1.existsSync)(outputDir)) {
-                (0, fs_1.mkdirSync)(outputDir, { recursive: true });
+            const baseMdDir = mdDir || DEFAULT_MD_DIR;
+            if (!(0, fs_1.existsSync)(baseMdDir)) {
+                (0, fs_1.mkdirSync)(baseMdDir, { recursive: true });
             }
             const leafPages = this.pages.filter((page) => !page.children || page.children.length === 0);
             const targetPages = count && count > 0 ? leafPages.slice(0, count) : leafPages;
@@ -338,7 +613,7 @@ class Notion {
             // (the original `forEach(async ...)` did neither).
             for (const page of targetPages) {
                 try {
-                    yield this.writePage(outputDir, page);
+                    yield this.writePage(baseMdDir, page, exportOptions);
                 }
                 catch (err) {
                     console.error(`Failed to write page "${page.title}" (${page.id}):`, err);
@@ -384,14 +659,30 @@ class Notion {
             }
         });
     }
-    writePage(outputDir, page) {
+    writePage(mdDir, page, exportOptions) {
         return __awaiter(this, void 0, void 0, function* () {
-            const markdown = yield this.getMarkdownByPageId(page.id);
+            var _a, _b;
+            let markdown = yield this.getMarkdownByPageId(page.id);
             if (!markdown)
                 return;
             const slug = page.pathname || page.idWithoutSeparator;
             const dateStr = formatDate(page.createdAt);
-            const filename = `${dateStr}-${slug}.md`;
+            const postBase = `${dateStr}-${slug}`;
+            const ext = (exportOptions === null || exportOptions === void 0 ? void 0 : exportOptions.fileExtension) === 'mdx' ? 'mdx' : 'md';
+            const filename = `${postBase}.${ext}`;
+            const markdownFilePath = path.join(mdDir, filename);
+            if (exportOptions === null || exportOptions === void 0 ? void 0 : exportOptions.downloadAssets) {
+                const trimmed = ((_a = exportOptions.assetsDir) !== null && _a !== void 0 ? _a : '').trim();
+                const assetsRoot = trimmed.length > 0 ? trimmed : path.join(mdDir, 'images');
+                markdown = yield (0, assets_1.downloadAndRewriteMarkdownImages)({
+                    markdown,
+                    notionToken: this.notionToken,
+                    markdownFilePath,
+                    assetsDir: assetsRoot,
+                    postBase,
+                    assetLinkBase: ((_b = exportOptions.assetLinkBase) === null || _b === void 0 ? void 0 : _b.trim()) || undefined,
+                });
+            }
             const frontmatter = buildFrontmatter({
                 title: page.title || slug,
                 slug,
@@ -400,7 +691,7 @@ class Notion {
                 notion_url: page.url,
             });
             const body = `${frontmatter}\n[Open in Notion](${page.url})\n\n${markdown}\n`;
-            yield (0, promises_1.writeFile)(path.join(outputDir, filename), body, {
+            yield (0, promises_1.writeFile)(path.join(mdDir, filename), body, {
                 encoding: 'utf8',
             });
         });

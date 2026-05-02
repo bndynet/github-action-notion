@@ -6,10 +6,17 @@ async function run(): Promise<void> {
   try {
     const notionToken: string = core.getInput('notion-token');
     const rootPageId: string = core.getInput('root-page-id');
-    const outputDir: string = core.getInput('output-dir');
+    const mdDir: string = core.getInput('md-dir') || './blog/';
     const cleanupBefore: boolean = core.getBooleanInput('cleanup-before');
     const outputPageCount: number =
       parseInt(core.getInput('output-page-count') || '0') || 0;
+    const downloadAssets: boolean = core.getBooleanInput('download-assets');
+    const assetsDirInput = core.getInput('assets-dir').trim();
+    const assetLinkBase = core.getInput('asset-link-base').trim();
+    const fileExtensionRaw = (
+      core.getInput('file-extension') || 'md'
+    ).toLowerCase();
+    const fileExtension = fileExtensionRaw === 'mdx' ? 'mdx' : 'md';
 
     if (!notionToken) {
       core.setFailed('"notion-token is required."');
@@ -22,12 +29,17 @@ async function run(): Promise<void> {
     }
 
     if (cleanupBefore) {
-      emptyDirSync(outputDir);
+      emptyDirSync(mdDir);
     }
 
     core.debug(new Date().toTimeString());
     const notion = new Notion(notionToken);
-    await notion.outputPages(outputDir, rootPageId, outputPageCount);
+    await notion.outputPages(mdDir, rootPageId, outputPageCount, {
+      downloadAssets,
+      assetsDir: assetsDirInput || undefined,
+      assetLinkBase: assetLinkBase || undefined,
+      fileExtension,
+    });
     core.debug(new Date().toTimeString());
 
     core.setOutput('time', new Date().toTimeString());
